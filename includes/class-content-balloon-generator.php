@@ -77,8 +77,11 @@ class Content_Balloon_Generator {
         
         // Set memory limit for large file operations
         if ($max_file_size > 1000) { // If max file size > 1GB
-            ini_set('memory_limit', '2G');
+            ini_set('memory_limit', '3G');
         }
+        
+        // Add memory cleanup
+        add_action('content_balloon_progress', array($this, 'cleanup_memory'), 10, 2);
         
         // Save job to transient
         set_transient('content_balloon_current_job', $this->current_job, HOUR_IN_SECONDS);
@@ -207,23 +210,29 @@ class Content_Balloon_Generator {
      */
     private function build_content_library() {
         $library = array();
-        $total_content = '';
         
         // Download multiple books to build a larger content pool
-        $books_to_download = min(10, count($this->book_ids)); // Download up to 10 books
+        $books_to_download = min(5, count($this->book_ids)); // Reduced to 5 books to save memory
         
-        foreach (array_rand($this->book_ids, $books_to_download) as $key) {
+        $selected_keys = array_rand($this->book_ids, $books_to_download);
+        if (!is_array($selected_keys)) {
+            $selected_keys = array($selected_keys);
+        }
+        
+        foreach ($selected_keys as $key) {
             $book_id = $this->book_ids[$key];
             $book_content = $this->download_book($book_id);
             
             if ($book_content) {
                 $library[] = $book_content;
-                $total_content .= $book_content;
                 error_log("Content Balloon: Downloaded book {$book_id}, size: " . $this->format_bytes(strlen($book_content)));
+                
+                // Free memory after each book
+                unset($book_content);
             }
         }
         
-        error_log("Content Balloon: Built content library with " . count($library) . " books, total size: " . $this->format_bytes(strlen($total_content)));
+        error_log("Content Balloon: Built content library with " . count($library) . " books");
         return $library;
     }
     
@@ -233,12 +242,6 @@ class Content_Balloon_Generator {
     private function generate_files_from_library($library, $directory, $file_count, $max_size, $min_size) {
         $files = array();
         
-        // Combine all content into one large pool
-        $combined_content = implode("\n\n--- BOOK SEPARATOR ---\n\n", $library);
-        $total_content_size = strlen($combined_content);
-        
-        error_log("Content Balloon: Combined content size: " . $this->format_bytes($total_content_size));
-        
         // Generate size distribution
         $size_distribution = $this->generate_size_distribution($file_count, $min_size, $max_size);
         
@@ -247,18 +250,16 @@ class Content_Balloon_Generator {
             $filename = $this->generate_random_filename();
             $filepath = $directory . '/' . $filename;
             
-            // Generate content for this file
-            $file_content = $this->generate_file_content($combined_content, $target_size);
-            
-            // Write file
-            if ($this->write_file_content($filepath, $file_content)) {
+            // Generate file directly without loading into memory
+            if ($this->generate_file_directly($library, $filepath, $target_size)) {
+                $actual_size = filesize($filepath);
                 $files[] = array(
                     'path' => $filepath,
-                    'size' => strlen($file_content),
+                    'size' => $actual_size,
                     'filename' => $filename
                 );
                 
-                error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes(strlen($file_content)));
+                error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes($actual_size));
             }
         }
         
@@ -266,32 +267,86 @@ class Content_Balloon_Generator {
     }
     
     /**
-     * Generate content for a specific file size
+     * Generate file directly to disk without loading into memory
      */
-    private function generate_file_content($source_content, $target_size) {
-        $source_length = strlen($source_content);
-        
-        if ($source_length >= $target_size) {
-            // Source content is large enough, extract a chunk
-            return $this->extract_random_chunk($source_content, $target_size);
+    private function generate_file_directly($library, $filepath, $target_size) {
+        $handle = fopen($filepath, 'w');
+        if ($handle === false) {
+            return false;
         }
         
-        // Source content is too small, need to repeat/expand it
-        $repetitions_needed = ceil($target_size / $source_length);
-        $expanded_content = '';
+        $bytes_written = 0;
+        $book_index = 0;
+        $repetition_count = 0;
         
-        for ($i = 0; $i < $repetitions_needed; $i++) {
-            $expanded_content .= $source_content . "\n\n--- REPETITION " . ($i + 1) . " ---\n\n";
+        // Write content until we reach the target size
+        while ($bytes_written < $target_size) {
+            // Get content from current book
+            $book_content = $library[$book_index % count($library)];
+            $book_length = strlen($book_content);
+            
+            // If this book is large enough, extract a chunk
+            if ($book_length >= ($target_size - $bytes_written)) {
+                $chunk_size = $target_size - $bytes_written;
+                $start_pos = rand(0, $book_length - $chunk_size);
+                $chunk = substr($book_content, $start_pos, $chunk_size);
+                
+                if (fwrite($handle, $chunk) === false) {
+                    fclose($handle);
+                    return false;
+                }
+                $bytes_written += strlen($chunk);
+                break;
+            }
+            
+            // Write the entire book content
+            if (fwrite($handle, $book_content) === false) {
+                fclose($handle);
+                return false;
+            }
+            $bytes_written += $book_length;
+            
+            // Add separator
+            $separator = "\n\n--- BOOK " . ($book_index + 1) . " ---\n\n";
+            if (fwrite($handle, $separator) === false) {
+                fclose($handle);
+                return false;
+            }
+            $bytes_written += strlen($separator);
+            
+            // Move to next book
+            $book_index++;
+            
+            // If we've used all books, start repeating
+            if ($book_index >= count($library)) {
+                $repetition_count++;
+                $book_index = 0;
+                
+                // Add repetition marker
+                $repetition_marker = "\n\n--- REPETITION " . $repetition_count . " ---\n\n";
+                if (fwrite($handle, $repetition_marker) === false) {
+                    fclose($handle);
+                    return false;
+                }
+                $bytes_written += strlen($repetition_marker);
+            }
+            
+            // If we're getting close to target, add padding
+            if (($target_size - $bytes_written) < 1024) {
+                $padding_needed = $target_size - $bytes_written;
+                $padding = $this->generate_padding_content($padding_needed);
+                
+                if (fwrite($handle, $padding) === false) {
+                    fclose($handle);
+                    return false;
+                }
+                $bytes_written += strlen($padding);
+                break;
+            }
         }
         
-        // If still not large enough, add some padding
-        if (strlen($expanded_content) < $target_size) {
-            $padding_needed = $target_size - strlen($expanded_content);
-            $expanded_content .= $this->generate_padding_content($padding_needed);
-        }
-        
-        // Extract the exact target size
-        return substr($expanded_content, 0, $target_size);
+        fclose($handle);
+        return true;
     }
     
     /**
@@ -499,6 +554,21 @@ class Content_Balloon_Generator {
             'success' => false,
             'message' => 'No generation running'
         );
+    }
+    
+    /**
+     * Clean up memory during file generation
+     */
+    public function cleanup_memory($current, $total) {
+        // Force garbage collection every 10 files
+        if ($current % 10 === 0) {
+            gc_collect_cycles();
+            
+            // Log memory usage
+            $memory_usage = memory_get_usage(true);
+            $memory_peak = memory_get_peak_usage(true);
+            error_log("Content Balloon: Memory usage - Current: " . $this->format_bytes($memory_usage) . ", Peak: " . $this->format_bytes($memory_peak));
+        }
     }
     
     /**
