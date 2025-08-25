@@ -19,7 +19,7 @@ class Content_Balloon_CLI {
      * : Maximum file size in MB (default: 10)
      *
      * [--min-size=<mb>]
-     * : Minimum file size in MB (default: 1)
+     * : Minimum file size in MB (default: 0.001, supports KB: 0.001 = 1KB)
      *
      * [--verbose]
      * : Show detailed progress information
@@ -27,14 +27,15 @@ class Content_Balloon_CLI {
      * ## EXAMPLES
      *
      *     wp content-balloon generate --count=500 --max-size=20 --min-size=5
+     *     wp content-balloon generate --count=1000 --min-size=0.001 --max-size=1
      *     wp content-balloon generate --count=1000 --verbose
      *
      * @when after_wp_load
      */
     public function generate($args, $assoc_args) {
         $count = isset($assoc_args['count']) ? intval($assoc_args['count']) : 100;
-        $max_size = isset($assoc_args['max-size']) ? intval($assoc_args['max-size']) : 10240;
-        $min_size = isset($assoc_args['min-size']) ? intval($assoc_args['min-size']) : 1;
+        $max_size = isset($assoc_args['max-size']) ? floatval($assoc_args['max-size']) : 10240;
+        $min_size = isset($assoc_args['min-size']) ? floatval($assoc_args['min-size']) : 0.001;
         $verbose = isset($assoc_args['verbose']);
         
         // Validate inputs
