@@ -1,0 +1,207 @@
+/**
+ * Content Balloon Admin Styles
+ */
+
+.content-balloon-container {
+    max-width: 1200px;
+}
+
+.content-balloon-section {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    padding: 20px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.content-balloon-section h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    color: #23282d;
+}
+
+.content-balloon-actions {
+    margin: 15px 0;
+}
+
+.content-balloon-actions .button {
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+/* Progress bar */
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 15px 0;
+    border: 1px solid #ddd;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0073aa, #005a87);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+#progress-text {
+    text-align: center;
+    font-weight: 500;
+    color: #666;
+    margin: 10px 0;
+}
+
+/* Status display */
+#status-display {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #0073aa;
+}
+
+#status-display p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+#status-display strong {
+    color: #23282d;
+}
+
+/* Form styling */
+.form-table th {
+    width: 200px;
+}
+
+.form-table input[type="number"] {
+    width: 100px;
+}
+
+.form-table input[type="text"] {
+    width: 300px;
+}
+
+/* Webhook section */
+.content-balloon-section pre {
+    background: #f4f4f4;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.content-balloon-section code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+}
+
+/* Button states */
+.button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.button-warning {
+    background: #dc3232;
+    border-color: #dc3232;
+    color: #fff;
+}
+
+.button-warning:hover {
+    background: #c92626;
+    border-color: #c92626;
+}
+
+/* Responsive design */
+@media (max-width: 782px) {
+    .content-balloon-section {
+        padding: 15px;
+    }
+    
+    .form-table th,
+    .form-table td {
+        display: block;
+        width: 100%;
+        padding: 5px 0;
+    }
+    
+    .form-table th {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .content-balloon-actions .button {
+        display: block;
+        width: 100%;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+    
+    .content-balloon-section pre {
+        font-size: 11px;
+        padding: 10px;
+    }
+}
+
+/* Animation for progress updates */
+.progress-fill {
+    transition: width 0.5s ease-in-out;
+}
+
+/* Notice styling */
+.notice {
+    margin: 15px 0;
+    padding: 10px 15px;
+    border-left: 4px solid;
+}
+
+.notice-success {
+    border-color: #46b450;
+    background: #f7fcf7;
+}
+
+.notice-error {
+    border-color: #dc3232;
+    background: #fef7f7;
+}
+
+.notice-info {
+    border-color: #0073aa;
+    background: #f7fbfe;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
