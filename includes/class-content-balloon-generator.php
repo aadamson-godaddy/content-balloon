@@ -119,6 +119,19 @@ class Content_Balloon_Generator {
             return;
         }
         
+        // Verify library content
+        $total_library_size = 0;
+        foreach ($content_library as $book_content) {
+            $total_library_size += strlen($book_content);
+        }
+        
+        error_log("Content Balloon: Content library built successfully - " . count($content_library) . " books, total size: " . $this->format_bytes($total_library_size));
+        
+        if ($total_library_size === 0) {
+            error_log('Content Balloon: Content library is empty - no books were downloaded successfully');
+            return;
+        }
+        
         // Create random subdirectories
         $subdir = $base_dir . '/' . $this->generate_random_subdir();
         if (!file_exists($subdir)) {
@@ -250,16 +263,27 @@ class Content_Balloon_Generator {
             $filename = $this->generate_random_filename();
             $filepath = $directory . '/' . $filename;
             
+            error_log("Content Balloon: Attempting to generate file {$filename} - Target size: " . $this->format_bytes($target_size));
+            
             // Generate file directly without loading into memory
             if ($this->generate_file_directly($library, $filepath, $target_size)) {
                 $actual_size = filesize($filepath);
+                
+                // Double-check the file was actually created and has content
+                if ($actual_size === false || $actual_size === 0) {
+                    error_log("Content Balloon: ERROR - File generation succeeded but file is empty: {$filepath}");
+                    continue; // Skip this file and try the next one
+                }
+                
                 $files[] = array(
                     'path' => $filepath,
                     'size' => $actual_size,
                     'filename' => $filename
                 );
                 
-                error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes($actual_size));
+                error_log("Content Balloon: Successfully generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes($actual_size));
+            } else {
+                error_log("Content Balloon: ERROR - Failed to generate file {$filename} - Target size: " . $this->format_bytes($target_size));
             }
         }
         
@@ -270,6 +294,11 @@ class Content_Balloon_Generator {
      * Generate file directly to disk without loading into memory
      */
     private function generate_file_directly($library, $filepath, $target_size) {
+        // Handle very small files (less than 1KB) with a simpler approach
+        if ($target_size < 1024) {
+            return $this->generate_small_file($library, $filepath, $target_size);
+        }
+        
         $handle = fopen($filepath, 'w');
         if ($handle === false) {
             return false;
@@ -346,6 +375,37 @@ class Content_Balloon_Generator {
         }
         
         fclose($handle);
+        
+        // Verify the file was actually written
+        $actual_size = filesize($filepath);
+        if ($actual_size === false || $actual_size === 0) {
+            error_log("Content Balloon: File generation failed - file is empty: {$filepath}");
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Generate small files (less than 1KB) with a simpler approach
+     */
+    private function generate_small_file($library, $filepath, $target_size) {
+        // For very small files, just use padding content directly
+        $content = $this->generate_padding_content($target_size);
+        
+        if (file_put_contents($filepath, $content) === false) {
+            error_log("Content Balloon: Failed to write small file: {$filepath}");
+            return false;
+        }
+        
+        // Verify the file was written correctly
+        $actual_size = filesize($filepath);
+        if ($actual_size === false || $actual_size === 0) {
+            error_log("Content Balloon: Small file generation failed - file is empty: {$filepath}");
+            return false;
+        }
+        
+        error_log("Content Balloon: Generated small file: {$filepath} - Size: " . $this->format_bytes($actual_size));
         return true;
     }
     

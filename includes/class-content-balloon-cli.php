@@ -42,12 +42,12 @@ class Content_Balloon_CLI {
             WP_CLI::error('File count must be between 1 and 10,000');
         }
         
-        if ($max_size < 1 || $max_size > 10240) {
-            WP_CLI::error('Maximum file size must be between 1 and 10,240 MB (10 GB)');
+        if ($max_size < 0.001 || $max_size > 10240) {
+            WP_CLI::error('Maximum file size must be between 0.001 and 10,240 MB (10 GB)');
         }
         
-        if ($min_size < 1 || $min_size >= $max_size) {
-            WP_CLI::error('Minimum file size must be less than maximum file size');
+        if ($min_size < 0.001 || $min_size >= $max_size) {
+            WP_CLI::error('Minimum file size must be between 0.001 and maximum file size');
         }
         
         WP_CLI::log("Starting file generation...");

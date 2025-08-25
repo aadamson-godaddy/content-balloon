@@ -68,20 +68,20 @@ class Content_Balloon {
         }
         
         $file_count = intval($_POST['file_count']);
-        $max_file_size = intval($_POST['max_file_size']);
-        $min_file_size = intval($_POST['min_file_size']);
+        $max_file_size = floatval($_POST['max_file_size']);
+        $min_file_size = floatval($_POST['min_file_size']);
         
         // Validate inputs
         if ($file_count < 1 || $file_count > 10000) {
             wp_die('Invalid file count');
         }
         
-        if ($max_file_size < 1 || $max_file_size > 10240) {
-            wp_die('Invalid max file size (must be 1-10,240 MB)');
+        if ($max_file_size < 0.001 || $max_file_size > 10240) {
+            wp_die('Invalid max file size (must be between 0.001 and 10,240 MB)');
         }
         
-        if ($min_file_size < 1 || $min_file_size >= $max_file_size) {
-            wp_die('Invalid min file size (must be less than max file size)');
+        if ($min_file_size < 0.001 || $min_file_size >= $max_file_size) {
+            wp_die('Invalid min file size (must be between 0.001 and max file size)');
         }
         
         // Update options

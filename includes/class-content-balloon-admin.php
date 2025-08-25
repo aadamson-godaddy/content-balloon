@@ -102,8 +102,8 @@ class Content_Balloon_Admin {
                                 <td>
                                     <input type="number" id="min_file_size" name="min_file_size" 
                                            value="<?php echo esc_attr($options['min_file_size_mb'] ?? 1); ?>" 
-                                           min="1" max="1000" class="regular-text" />
-                                    <p class="description">Maximum 1 GB (1,000 MB) per file</p>
+                                           min="0.001" max="1000" step="0.001" class="regular-text" />
+                                    <p class="description">Minimum size in MB. Use 0.001 for 1KB, 0.1 for 100KB, etc. (max: 1GB)</p>
                                 </td>
                             </tr>
                             <tr>
@@ -113,8 +113,8 @@ class Content_Balloon_Admin {
                                 <td>
                                     <input type="number" id="max_file_size" name="max_file_size" 
                                            value="<?php echo esc_attr($options['max_file_size_mb'] ?? 10240); ?>" 
-                                           min="1" max="10240" class="regular-text" />
-                                    <p class="description">Maximum 10 GB (10,240 MB) per file</p>
+                                           min="0.001" max="10240" step="0.001" class="regular-text" />
+                                    <p class="description">Maximum size in MB. Use 0.001 for 1KB, 0.1 for 100KB, etc. (max: 10GB)</p>
                                 </td>
                             </tr>
                             <tr>
@@ -263,8 +263,8 @@ class Content_Balloon_Admin {
         
         $options = array(
             'max_files_per_run' => intval($_POST['file_count']),
-            'min_file_size_mb' => intval($_POST['min_file_size']),
-            'max_file_size_mb' => intval($_POST['max_file_size']),
+            'min_file_size_mb' => floatval($_POST['min_file_size']),
+            'max_file_size_mb' => floatval($_POST['max_file_size']),
             'auto_cleanup_days' => intval($_POST['auto_cleanup_days']),
             'cleanup_enabled' => isset($_POST['cleanup_enabled']),
             'cleanup_frequency' => sanitize_text_field($_POST['cleanup_frequency'])
@@ -275,12 +275,12 @@ class Content_Balloon_Admin {
             wp_send_json_error('Invalid file count');
         }
         
-        if ($options['min_file_size_mb'] < 1 || $options['min_file_size_mb'] > 1000) {
-            wp_send_json_error('Invalid min file size');
+        if ($options['min_file_size_mb'] < 0.001 || $options['min_file_size_mb'] > 1000) {
+            wp_send_json_error('Invalid min file size (must be at least 0.001 MB)');
         }
         
-        if ($options['max_file_size_mb'] < 1 || $options['max_file_size_mb'] > 10240) {
-            wp_send_json_error('Invalid max file size');
+        if ($options['max_file_size_mb'] < 0.001 || $options['max_file_size_mb'] > 10240) {
+            wp_send_json_error('Invalid max file size (must be at least 0.001 MB)');
         }
         
         if ($options['min_file_size_mb'] >= $options['max_file_size_mb']) {

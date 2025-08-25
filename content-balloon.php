@@ -60,7 +60,7 @@ function content_balloon_activate() {
             'webhook_secret' => wp_generate_password(32, false),
             'max_files_per_run' => 100,
             'max_file_size_mb' => 10240,
-            'min_file_size_mb' => 1,
+            'min_file_size_mb' => 0.001,
             'auto_cleanup_days' => 7,
             'cleanup_enabled' => true,
             'cleanup_frequency' => 'daily',

@@ -45,7 +45,7 @@ git clone https://github.com/your-username/content-balloon.git
 
 ### Default Settings
 - Files per run: 100
-- File size range: 1-10 GB (1-10,240 MB)
+- File size range: 0.001 MB (1KB) to 10 GB (10,240 MB)
 - Auto cleanup: Enabled (daily)
 - Cleanup retention: 7 days
 - Webhook secret: Auto-generated
@@ -67,6 +67,9 @@ The plugin provides a comprehensive admin interface at **Tools > Content Balloon
 ```bash
 # Generate 500 files with 5-20 GB size range
 wp content-balloon generate --count=500 --min-size=5120 --max-size=20480
+
+# Generate 100 files with 1KB to 1MB size range
+wp content-balloon generate --count=100 --min-size=0.001 --max-size=1
 
 # Generate 1000 files with verbose progress
 wp content-balloon generate --count=1000 --verbose
@@ -99,7 +102,7 @@ curl -X POST https://yoursite.com/wp-json/content-balloon/v1/generate \
   -d '{
     "file_count": 100,
     "max_file_size": 10240,
-    "min_file_size": 1
+    "min_file_size": 0.001
   }'
 ```
 

@@ -32,15 +32,15 @@ class Content_Balloon_API {
                 ),
                 'max_file_size' => array(
                     'required' => false,
-                    'type' => 'integer',
-                    'minimum' => 1,
+                    'type' => 'number',
+                    'minimum' => 0.001,
                     'maximum' => 10240,
                     'default' => 10240
                 ),
                 'min_file_size' => array(
                     'required' => false,
-                    'type' => 'integer',
-                    'minimum' => 1,
+                    'type' => 'number',
+                    'minimum' => 0.001,
                     'maximum' => 1000,
                     'default' => 1
                 )
