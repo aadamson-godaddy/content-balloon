@@ -214,9 +214,12 @@ class Content_Balloon_Generator {
         $files = array();
         $content_length = strlen($content);
         
+        // Generate a better distribution of file sizes
+        $size_distribution = $this->generate_size_distribution($max_files, $min_size, $max_size);
+        
         for ($i = 0; $i < $max_files; $i++) {
-            // Generate random file size within range
-            $target_size = rand($min_size, $max_size);
+            // Use pre-generated size distribution
+            $target_size = $size_distribution[$i];
             
             // Generate random filename
             $filename = $this->generate_random_filename();
@@ -233,6 +236,9 @@ class Content_Balloon_Generator {
                         'size' => strlen($chunk),
                         'filename' => $filename
                     );
+                    
+                    // Log file size for debugging
+                    error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes(strlen($chunk)));
                 }
             } else {
                 // Use regular file writing for smaller files
@@ -242,11 +248,53 @@ class Content_Balloon_Generator {
                         'size' => strlen($chunk),
                         'filename' => $filename
                     );
+                    
+                    // Log file size for debugging
+                    error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes(strlen($chunk)));
                 }
             }
         }
         
         return $files;
+    }
+    
+    /**
+     * Generate a better distribution of file sizes
+     */
+    private function generate_size_distribution($file_count, $min_size, $max_size) {
+        $sizes = array();
+        
+        // Create a more varied distribution
+        for ($i = 0; $i < $file_count; $i++) {
+            // Use different distribution methods for variety
+            $method = $i % 4;
+            
+            switch ($method) {
+                case 0: // Random distribution
+                    $sizes[] = rand($min_size, $max_size);
+                    break;
+                    
+                case 1: // Linear distribution
+                    $ratio = $i / ($file_count - 1);
+                    $sizes[] = $min_size + ($ratio * ($max_size - $min_size));
+                    break;
+                    
+                case 2: // Exponential distribution (more small files)
+                    $ratio = $i / ($file_count - 1);
+                    $sizes[] = $min_size + (pow($ratio, 2) * ($max_size - $min_size));
+                    break;
+                    
+                case 3: // Inverse exponential distribution (more large files)
+                    $ratio = $i / ($file_count - 1);
+                    $sizes[] = $min_size + (pow(1 - $ratio, 2) * ($max_size - $min_size));
+                    break;
+            }
+        }
+        
+        // Shuffle the sizes for randomness
+        shuffle($sizes);
+        
+        return $sizes;
     }
     
     /**
@@ -266,9 +314,9 @@ class Content_Balloon_Generator {
         // Extract chunk
         $chunk = substr($content, $start, $target_size);
         
-        // Try to end at a word boundary
+        // Try to end at a word boundary, but be less aggressive about cutting
         $last_space = strrpos($chunk, ' ');
-        if ($last_space !== false && $last_space > $target_size * 0.8) {
+        if ($last_space !== false && $last_space > $target_size * 0.9) {
             $chunk = substr($chunk, 0, $last_space);
         }
         
@@ -378,5 +426,18 @@ class Content_Balloon_Generator {
             'success' => false,
             'message' => 'No generation running'
         );
+    }
+    
+    /**
+     * Format bytes to human readable format
+     */
+    private function format_bytes($bytes, $precision = 2) {
+        $units = array('B', 'KB', 'MB', 'GB', 'TB');
+        
+        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
+            $bytes /= 1024;
+        }
+        
+        return round($bytes, $precision) . ' ' . $units[$i];
     }
 }

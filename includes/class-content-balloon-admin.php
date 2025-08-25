@@ -198,6 +198,13 @@ class Content_Balloon_Admin {
                         <p><strong>Total Size Generated:</strong> <span id="total-size"><?php echo esc_html($this->format_bytes($status['total_size'] ?? 0)); ?></span></p>
                         <p><strong>Last Generation:</strong> <span id="last-generation"><?php echo esc_html($status['last_generation'] ?? 'Never'); ?></span></p>
                         <p><strong>Current Status:</strong> <span id="current-status"><?php echo esc_html($status['status'] ?? 'Idle'); ?></span></p>
+                        
+                        <?php if ($status['total_files'] > 0): ?>
+                        <div class="file-size-info">
+                            <p><strong>File Size Distribution:</strong></p>
+                            <p class="description">Files are generated with varied sizes using multiple distribution methods (random, linear, exponential) to ensure diversity.</p>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
