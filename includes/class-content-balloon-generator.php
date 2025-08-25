@@ -108,50 +108,43 @@ class Content_Balloon_Generator {
         $files_created = 0;
         $total_size = 0;
         
-        // Download and process novels
-        while ($files_created < $this->current_job['total_files']) {
-            // Select random book
-            $book_id = $this->book_ids[array_rand($this->book_ids)];
-            $book_content = $this->download_book($book_id);
+        // Download multiple books to build a content library
+        $content_library = $this->build_content_library();
+        
+        if (empty($content_library)) {
+            error_log('Content Balloon: Failed to download any books for content library');
+            return;
+        }
+        
+        // Create random subdirectories
+        $subdir = $base_dir . '/' . $this->generate_random_subdir();
+        if (!file_exists($subdir)) {
+            wp_mkdir_p($subdir);
+        }
+        
+        // Generate files using the content library
+        $files_from_library = $this->generate_files_from_library(
+            $content_library, 
+            $subdir, 
+            $this->current_job['total_files'],
+            $this->current_job['max_file_size'],
+            $this->current_job['min_file_size']
+        );
+        
+        foreach ($files_from_library as $file_info) {
+            $files_created++;
+            $total_size += $file_info['size'];
             
-            if (!$book_content) {
-                continue; // Try another book
-            }
+            // Update progress
+            $this->current_job['files_completed'] = $files_created;
+            $this->current_job['total_size'] = $total_size;
+            set_transient('content_balloon_current_job', $this->current_job, HOUR_IN_SECONDS);
             
-            // Create random subdirectories
-            $subdir = $base_dir . '/' . $this->generate_random_subdir();
-            if (!file_exists($subdir)) {
-                wp_mkdir_p($subdir);
-            }
+            // Trigger progress action
+            do_action('content_balloon_progress', $files_created, $this->current_job['total_files']);
             
-            // Split book into files
-            $files_from_book = $this->split_book_into_files(
-                $book_content, 
-                $subdir, 
-                $this->current_job['total_files'] - $files_created,
-                $this->current_job['max_file_size'],
-                $this->current_job['min_file_size']
-            );
-            
-            foreach ($files_from_book as $file_info) {
-                if ($files_created >= $this->current_job['total_files']) {
-                    break;
-                }
-                
-                $files_created++;
-                $total_size += $file_info['size'];
-                
-                // Update progress
-                $this->current_job['files_completed'] = $files_created;
-                $this->current_job['total_size'] = $total_size;
-                set_transient('content_balloon_current_job', $this->current_job, HOUR_IN_SECONDS);
-                
-                // Trigger progress action
-                do_action('content_balloon_progress', $files_created, $this->current_job['total_files']);
-                
-                // Small delay to prevent overwhelming the system
-                usleep(10000); // 10ms
-            }
+            // Small delay to prevent overwhelming the system
+            usleep(10000); // 10ms
         }
         
         // Update options
@@ -207,55 +200,135 @@ class Content_Balloon_Generator {
         return false;
     }
     
+
+    
     /**
-     * Split book content into multiple files
+     * Build a content library from multiple books
      */
-    private function split_book_into_files($content, $directory, $max_files, $max_size, $min_size) {
-        $files = array();
-        $content_length = strlen($content);
+    private function build_content_library() {
+        $library = array();
+        $total_content = '';
         
-        // Generate a better distribution of file sizes
-        $size_distribution = $this->generate_size_distribution($max_files, $min_size, $max_size);
+        // Download multiple books to build a larger content pool
+        $books_to_download = min(10, count($this->book_ids)); // Download up to 10 books
         
-        for ($i = 0; $i < $max_files; $i++) {
-            // Use pre-generated size distribution
-            $target_size = $size_distribution[$i];
+        foreach (array_rand($this->book_ids, $books_to_download) as $key) {
+            $book_id = $this->book_ids[$key];
+            $book_content = $this->download_book($book_id);
             
-            // Generate random filename
+            if ($book_content) {
+                $library[] = $book_content;
+                $total_content .= $book_content;
+                error_log("Content Balloon: Downloaded book {$book_id}, size: " . $this->format_bytes(strlen($book_content)));
+            }
+        }
+        
+        error_log("Content Balloon: Built content library with " . count($library) . " books, total size: " . $this->format_bytes(strlen($total_content)));
+        return $library;
+    }
+    
+    /**
+     * Generate files from the content library
+     */
+    private function generate_files_from_library($library, $directory, $file_count, $max_size, $min_size) {
+        $files = array();
+        
+        // Combine all content into one large pool
+        $combined_content = implode("\n\n--- BOOK SEPARATOR ---\n\n", $library);
+        $total_content_size = strlen($combined_content);
+        
+        error_log("Content Balloon: Combined content size: " . $this->format_bytes($total_content_size));
+        
+        // Generate size distribution
+        $size_distribution = $this->generate_size_distribution($file_count, $min_size, $max_size);
+        
+        for ($i = 0; $i < $file_count; $i++) {
+            $target_size = $size_distribution[$i];
             $filename = $this->generate_random_filename();
             $filepath = $directory . '/' . $filename;
             
-            // Extract random chunk of content
-            $chunk = $this->extract_random_chunk($content, $target_size);
+            // Generate content for this file
+            $file_content = $this->generate_file_content($combined_content, $target_size);
             
-            // Write file using streaming for very large files
-            if ($target_size > 100 * 1024 * 1024) { // If > 100MB, use streaming
-                if ($this->write_large_file_streaming($filepath, $chunk)) {
-                    $files[] = array(
-                        'path' => $filepath,
-                        'size' => strlen($chunk),
-                        'filename' => $filename
-                    );
-                    
-                    // Log file size for debugging
-                    error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes(strlen($chunk)));
-                }
-            } else {
-                // Use regular file writing for smaller files
-                if (file_put_contents($filepath, $chunk) !== false) {
-                    $files[] = array(
-                        'path' => $filepath,
-                        'size' => strlen($chunk),
-                        'filename' => $filename
-                    );
-                    
-                    // Log file size for debugging
-                    error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes(strlen($chunk)));
-                }
+            // Write file
+            if ($this->write_file_content($filepath, $file_content)) {
+                $files[] = array(
+                    'path' => $filepath,
+                    'size' => strlen($file_content),
+                    'filename' => $filename
+                );
+                
+                error_log("Content Balloon: Generated file {$filename} - Target: " . $this->format_bytes($target_size) . ", Actual: " . $this->format_bytes(strlen($file_content)));
             }
         }
         
         return $files;
+    }
+    
+    /**
+     * Generate content for a specific file size
+     */
+    private function generate_file_content($source_content, $target_size) {
+        $source_length = strlen($source_content);
+        
+        if ($source_length >= $target_size) {
+            // Source content is large enough, extract a chunk
+            return $this->extract_random_chunk($source_content, $target_size);
+        }
+        
+        // Source content is too small, need to repeat/expand it
+        $repetitions_needed = ceil($target_size / $source_length);
+        $expanded_content = '';
+        
+        for ($i = 0; $i < $repetitions_needed; $i++) {
+            $expanded_content .= $source_content . "\n\n--- REPETITION " . ($i + 1) . " ---\n\n";
+        }
+        
+        // If still not large enough, add some padding
+        if (strlen($expanded_content) < $target_size) {
+            $padding_needed = $target_size - strlen($expanded_content);
+            $expanded_content .= $this->generate_padding_content($padding_needed);
+        }
+        
+        // Extract the exact target size
+        return substr($expanded_content, 0, $target_size);
+    }
+    
+    /**
+     * Generate padding content to reach target size
+     */
+    private function generate_padding_content($size_needed) {
+        $padding = '';
+        $words = array(
+            'lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit',
+            'sed', 'do', 'eiusmod', 'tempor', 'incididunt', 'ut', 'labore', 'et', 'dolore',
+            'magna', 'aliqua', 'ut', 'enim', 'ad', 'minim', 'veniam', 'quis', 'nostrud',
+            'exercitation', 'ullamco', 'laboris', 'nisi', 'ut', 'aliquip', 'ex', 'ea',
+            'commodo', 'consequat', 'duis', 'aute', 'irure', 'dolor', 'in', 'reprehenderit',
+            'voluptate', 'velit', 'esse', 'cillum', 'dolore', 'eu', 'fugiat', 'nulla',
+            'pariatur', 'excepteur', 'sint', 'occaecat', 'cupidatat', 'non', 'proident',
+            'sunt', 'culpa', 'qui', 'officia', 'deserunt', 'mollit', 'anim', 'id', 'est',
+            'laborum', 'et', 'dolore', 'magna', 'aliqua', 'ut', 'enim', 'ad', 'minim'
+        );
+        
+        while (strlen($padding) < $size_needed) {
+            $padding .= $words[array_rand($words)] . ' ';
+        }
+        
+        return substr($padding, 0, $size_needed);
+    }
+    
+    /**
+     * Write file content (handles both small and large files)
+     */
+    private function write_file_content($filepath, $content) {
+        $content_size = strlen($content);
+        
+        if ($content_size > 100 * 1024 * 1024) { // If > 100MB, use streaming
+            return $this->write_large_file_streaming($filepath, $content);
+        } else {
+            return file_put_contents($filepath, $content) !== false;
+        }
     }
     
     /**
@@ -280,7 +353,7 @@ class Content_Balloon_Generator {
                     break;
                     
                 case 2: // Exponential distribution (more small files)
-                    $ratio = $i / ($file_count - 1);
+                    $ratio = $i / ($i == 0 ? 1 : $i);
                     $sizes[] = $min_size + (pow($ratio, 2) * ($max_size - $min_size));
                     break;
                     
